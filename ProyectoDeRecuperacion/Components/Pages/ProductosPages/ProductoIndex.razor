@@ -1,0 +1,135 @@
+﻿@page "/productos/index"
+
+@inject ProductosService productoService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Consulta de Productos</PageTitle>
+<div class="container">
+    <div class="card shadow-lg">
+        <div class="card-header space-between">
+            <h5 class="card-title">Consulta de Productos</h5>
+            <a href="/productos/create" class="btn btn-primary"><span class="bi bi-plus-square mt-3"></span>  Crear</a>
+        </div>
+
+        <div class="card-body">
+
+            @*labels*@
+            <div class="row">
+
+                @*Filtar por*@
+                <div class="col-3">
+                    <label class="col-form-label"><strong>Filtrar por</strong></label>
+                </div>
+
+                @*ValorFiltro*@
+                <div class="col-4">
+                    <label class="col-form-label"><strong>B&uacute;squeda</strong></label>
+                </div>
+            </div>
+
+            @*Inputs y botones*@
+            <div class="row align-items-center">
+                @*filtro*@
+                <div class="col-3">
+                    <InputSelect class="form-select" @bind-value="Filtro">
+                        <option value="" selected disabled>Seleccione </option>
+                        <option value="Descripcion">Descripci&oacute;n</option>
+                        <option value="Precio">Precio</option>
+                        <option value="Existencia">Existencia</option>
+                    </InputSelect>
+                </div>
+
+
+                @*Busqueda*@
+                <div class="col-4">
+                    <div class="input-group">
+                        <input class="form-control" @bind="ValorFiltro" placeholder="Buscar" />
+                        <button type="button" class="btn btn-outline-primary bi bi-search" @onclick="Buscar"></button>
+                    </div>
+                </div>
+
+                @*Restaurar*@
+                <div class="col-2">
+                    <button type="button" class="btn btn-outline-primary bi bi-arrow-counterclockwise" @onclick="Restablecer"></button>
+                </div>
+
+                <table class="table table-hover">
+                    <thead class="table table-striped text-black">
+                        <tr>
+                            <th>ProductoId</th>
+                            <th>Descripci&oacute;n</th>
+                            <th>Precio</th>
+                            <th>Costo</th>
+                            <th>Existencia</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var producto in ListaProductos)
+                        {
+                            <tr>
+                                <td>@producto.ProductoId</td>
+                                <td>@producto.Descripcion</td>
+                                <td>@producto.Precio.ToString("N2")</td>
+                                <td>@producto.Costo.ToString("N2")</td>
+                                <td>@producto.Existencia</td>
+
+                                <td class="text-center">
+                                    <a href="/productos/edit/@producto.ProductoId" class="btn btn-outline-primary bi bi-pencil-square"></a>
+                                    <a href="/productos/delete/@producto.ProductoId" class="btn btn-outline-danger bi bi-trash"></a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card-footer space-between">
+                <label class="ms-3"><strong>Cantidad: </strong> @ListaProductos.Count()</label>
+                <div class="col-8">
+                    <label class="ms-5"><strong>Total Inventario: </strong>@ListaProductos.Sum(p => p.Existencia)</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    public List<Productos> ListaProductos { get; set; } = new List<Productos>();
+
+    public string Filtro { get; set; } = string.Empty;
+    public string ValorFiltro { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ListaProductos = await productoService.Listar(p => p.ProductoId > 0);
+    }
+
+    private async Task Buscar()
+    {
+        if (!string.IsNullOrWhiteSpace(ValorFiltro))
+        {
+            if (Filtro == nameof(Productos.Descripcion))
+            {
+                ListaProductos = await productoService.Listar(p => p.Descripcion.ToLower().Contains(ValorFiltro.ToLower()));
+            }
+            else if (Filtro == nameof(Productos.Precio) && double.TryParse(ValorFiltro, out var precio))
+            {
+                ListaProductos = await productoService.Listar(p => p.Precio == precio);
+            }
+            else if (Filtro == nameof(Productos.Existencia) && int.TryParse(ValorFiltro, out var existencia))
+            {
+                ListaProductos = await productoService.Listar(p => p.Existencia == existencia);
+            }
+        }
+    }
+
+    private async Task Restablecer()
+    {
+        ListaProductos = await productoService.Listar(p => p.ProductoId > 0);
+        Filtro = string.Empty;
+        ValorFiltro = string.Empty;
+    }
+}

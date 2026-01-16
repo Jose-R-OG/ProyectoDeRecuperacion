@@ -10,4 +10,6 @@ public class Entrada
     [Required(ErrorMessage = "El Concepto es requerido")]
     public string Concepto { get; set; } = string.Empty;
     public double Total { get; set; }
+
+    public ICollection<EntradaDetalle> Detalles { get; set; } = new List<EntradaDetalle>();
 }
