@@ -1,0 +1,167 @@
+﻿@page "/productos/create"
+@page "/productos/edit/{ProductoId:int}"
+
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using ProyectoDeRecuperacion.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+
+@inject ProductosService productoService
+@inject NavigationManager navigationManager
+@rendermode InteractiveServer
+
+<PageTitle>@(ProductoId > 0 ? "Editar Producto" : "Crear Producto")</PageTitle>
+
+<EditForm Model="producto" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+
+    <div class="container">
+        <div class="card shadow-lg">
+            <div class="card-header text-center">
+                <h5 class="card-title">@(ProductoId > 0 ? "Editar Producto" : "Crear Producto")</h5>
+            </div>
+
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Mensaje))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        @Mensaje
+                        <button type="button" class="btn-close" @onclick="() => Mensaje = string.Empty"></button>
+                    </div>
+                }
+
+                @* ID *@
+                <div class="mb-3">
+                    <label class="form-label">ProductoId</label>
+                    <InputNumber class="form-control" @bind-Value="producto.ProductoId" readonly></InputNumber>
+                </div>
+
+                @* Descripción *@
+                <div class="mb-3">
+                    <label class="form-label">Descripci&oacute;n</label>
+                    <InputText class="form-control" @bind-Value="producto.Descripcion"></InputText>
+                    <ValidationMessage For="@(() => producto.Descripcion)" />
+                </div>
+
+                @* Costo *@
+                <div class="mb-3">
+                    <label class="form-label">Costo</label>
+                    <InputNumber class="form-control" @bind-Value="producto.Costo"></InputNumber>
+                    <ValidationMessage For="@(() => producto.Costo)" />
+                </div>
+
+                @* Precio *@
+                <div class="mb-3">
+                    <label class="form-label">Precio</label>
+                    <InputNumber class="form-control" @bind-Value="producto.Precio"></InputNumber>
+                    <ValidationMessage For="@(() => producto.Precio)" />
+                </div>
+
+                @* Existencia *@
+                <div class="mb-3">
+                    <label class="form-label">Existencia</label>
+                    <InputNumber class="form-control" @bind-Value="producto.Existencia"></InputNumber>
+                    <ValidationMessage For="@(() => producto.Existencia)" />
+                </div>
+
+            </div>
+
+            <div class="card-footer text-center">
+                <a href="/productos/index" class="btn btn-secondary"><span class="bi bi-arrow-left"></span> Volver</a>
+                <button type="submit" class="btn btn-primary"><span class="bi bi-floppy"></span> Guardar</button>
+
+                @if (ProductoId > 0)
+                {
+                    <button type="button" class="btn btn-danger" @onclick="Eliminar">
+                        <span class="bi bi-trash"></span> Eliminar
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter]
+    public int ProductoId { get; set; }
+
+    public Productos producto { get; set; } = new Productos();
+    public string Mensaje { get; set; } = string.Empty;
+
+    private ApplicationUser? user;
+    private string? username;
+    private string? phoneNumber;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null)
+        {
+            navigationManager.NavigateTo("/Account/Login");
+            return;
+        }
+
+        if (ProductoId > 0)
+        {
+            var encontrado = await productoService.Buscar(ProductoId);
+            if (encontrado != null)
+            {
+                producto = encontrado;
+            }
+            else
+            {
+                Mensaje = "Producto no encontrado.";
+            }
+        }
+        else
+        {
+            producto = new Productos();
+        }
+    }
+
+    private async Task Guardar()
+    {
+
+        if (ProductoId == 0)
+        {
+
+            var lista = await productoService.Listar(p => p.Descripcion.ToLower() == producto.Descripcion.ToLower());
+            if (lista.Any())
+            {
+                Mensaje = "Ya existe un producto con esa descripción.";
+                return;
+            }
+        }
+
+        var guardo = await productoService.Guardar(producto);
+
+        if (guardo)
+        {
+            navigationManager.NavigateTo("/productos/index");
+        }
+        else
+        {
+            Mensaje = "No se pudo guardar el producto. Intente nuevamente.";
+        }
+    }
+
+    private async Task Eliminar()
+    {
+        var eliminado = await productoService.Eliminar(producto.ProductoId);
+
+        if (eliminado)
+        {
+            navigationManager.NavigateTo("/productos/index");
+        }
+        else
+        {
+            Mensaje = "No se pudo eliminar el producto.";
+        }
+    }
+}

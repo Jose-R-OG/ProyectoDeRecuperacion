@@ -16,7 +16,6 @@ public class EntradaService(IDbContextFactory<ApplicationDbContext> DbFactory)
         await using var contexto = await DbFactory.CreateDbContextAsync();
         foreach (var item in detalles)
         {
-            // Buscamos el producto
             var producto = await contexto.productos.SingleAsync(p => p.ProductoId == item.ProductoId);
 
             if (tipoOperacion == TipoOperacion.Suma)
@@ -33,7 +32,6 @@ public class EntradaService(IDbContextFactory<ApplicationDbContext> DbFactory)
         await using var contexto = await DbFactory.CreateDbContextAsync();
         contexto.entradas.Add(entrada);
 
-        // ALERTA: En una Entrada (compra), SUMAMOS al inventario
         await AfectarExistencia(entrada.Detalles.ToArray(), TipoOperacion.Suma);
 
         return await contexto.SaveChangesAsync() > 0;
@@ -49,14 +47,12 @@ public class EntradaService(IDbContextFactory<ApplicationDbContext> DbFactory)
 
         if (original == null) return false;
 
-        // 1. Revertimos los detalles viejos (RESTAMOS lo que se había sumado antes)
         await AfectarExistencia(original.Detalles.ToArray(), TipoOperacion.Resta);
 
         contexto.detalles.RemoveRange(original.Detalles);
 
         contexto.Update(entrada);
 
-        // 2. Aplicamos los detalles nuevos (SUMAMOS la nueva mercancía)
         await AfectarExistencia(entrada.Detalles.ToArray(), TipoOperacion.Suma);
 
         return await contexto.SaveChangesAsync() > 0;
@@ -77,7 +73,6 @@ public class EntradaService(IDbContextFactory<ApplicationDbContext> DbFactory)
 
         if (entrada == null) return false;
 
-        // Al eliminar una entrada, debemos RESTAR la mercancía que había entrado
         await AfectarExistencia(entrada.Detalles.ToArray(), TipoOperacion.Resta);
 
         contexto.detalles.RemoveRange(entrada.Detalles);

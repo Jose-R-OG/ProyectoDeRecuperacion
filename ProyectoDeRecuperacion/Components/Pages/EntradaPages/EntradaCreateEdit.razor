@@ -1,0 +1,301 @@
+﻿@page "/Entrada/Create"
+@page "/Entrada/Edit/{EntradaId:int}"
+
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using ProyectoDeRecuperacion.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+
+@inject EntradaService entradaService
+@inject ProductosService productosService
+@inject NavigationManager navigationManager
+@rendermode InteractiveServer
+
+<PageTitle>@(EntradaId > 0 ? "Editar Entrada" : "Crear Entrada")</PageTitle>
+
+<EditForm Model="entrada" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <div class="container">
+        <div class="card shadow-lg">
+            <div class="card-header text-center">
+                <h5 class="card-title">@(EntradaId > 0 ? "Editar Entrada" : "Crear Entrada")</h5>
+            </div>
+
+            <div class="card-body">
+
+                @* Fecha *@
+                <div class="mt-3">
+                    <label class="form-label">Fecha</label>
+                    <InputDate class="form-control" @bind-Value="entrada.Fecha"></InputDate>
+                </div>
+
+                @* ID *@
+                <div class="mt-3">
+                    <label class="form-label">EntradaId</label>
+                    <InputNumber class="form-control" @bind-Value="entrada.EntradaId" readonly></InputNumber>
+                </div>
+
+                @* Concepto *@
+                <div class="mt-3">
+                    <label class="form-label">Concepto</label>
+                    <InputText class="form-control" @bind-Value="entrada.Concepto"></InputText>
+                    <ValidationMessage class="alert text-danger" For="@(() => entrada.Concepto)"></ValidationMessage>
+                </div>
+
+                @* --- DETALLES DE ENTRADA --- *@
+                <div class="border border-success p-3 mt-3">
+                    <h5>Detalles Entrada</h5>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+                        </div>
+                    }
+
+                    <div class="row">
+                        <div class="col-4">
+                            <label class="form-label">Producto</label>
+                            <InputSelect Value="productoIdDetalle" ValueExpression="() => productoIdDetalle" ValueChanged="((int valor) => AlCambiarProducto(valor))" class="form-select">
+                                <option value="0">Seleccione un producto</option>
+                                @foreach (var item in ListaProductos)
+                                {
+                                    <option value="@item.ProductoId">@item.Descripcion (Costo actual: @item.Costo.ToString("C"))</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        @* Cantidad *@
+                        <div class="col-3">
+                            <label class="form-label">Cantidad</label>
+                            <InputNumber class="form-control" @bind-Value="cantidad"></InputNumber>
+                        </div>
+
+                        @* Costo *@
+                        <div class="col-3">
+                            <label class="form-label">Costo Unitario</label>
+                            <InputNumber class="form-control" @bind-Value="costoDetalle"></InputNumber>
+                        </div>
+
+                        <div class="col-2 align-self-end">
+                            <button type="button" class="btn btn-success bi bi-plus" @onclick="AgregarDetalle">Agregar</button>
+                        </div>
+                    </div>
+
+                    @* Tabla de Detalles Agregados *@
+                    @if (entrada.Detalles.Any())
+                    {
+                        <div class="mt-3">
+                            <table class="table table-bordered table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Cantidad</th>
+                                        <th>Costo</th>
+                                        <th>Importe</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var detalle in entrada.Detalles)
+                                    {
+                                        <tr>
+                                            <td>@(ListaProductos.FirstOrDefault(p => p.ProductoId == detalle.ProductoId)?.Descripcion ?? "N/A")</td>
+                                            <td>@detalle.Cantidad</td>
+                                            <td>@detalle.Costo.ToString("C")</td>
+                                            <td>@((detalle.Cantidad * detalle.Costo).ToString("C"))</td>
+                                            <td>
+                                                <button type="button" class="btn btn-danger bi bi-trash" @onclick="() => EliminarDetalle(detalle)">Remover</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <label class="float-end"><strong>Cantidad de Artículos: </strong>@entrada.Detalles.Count</label>
+
+                            <div class="mt-3">
+                                <label class="form-label"><strong>Total Entrada</strong></label>
+                                <input class="form-control fw-bold" value="@entrada.Total.ToString("C")" readonly />
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @* Footer *@
+            <div class="card-footer text-center">
+                <a href="/Entrada/Index" class="btn btn-secondary bi bi-arrow-left">Volver</a>
+                <button type="submit" class="btn btn-primary bi bi-floppy">Guardar</button>
+                @if (EntradaId > 0)
+                {
+                    <button type="button" class="btn btn-danger bi bi-trash" @onclick="Eliminar">Eliminar</button>
+                }
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public int EntradaId { get; set; }
+    public Entrada entrada { get; set; } = new Entrada();
+
+    public int productoIdDetalle { get; set; }
+    public int cantidad { get; set; }
+    public double costoDetalle { get; set; }
+    public string errorMessage { get; set; } = string.Empty;
+
+    public List<Productos> ListaProductos { get; set; } = new List<Productos>();
+
+    private ApplicationUser? user;
+    private string? username;
+    private string? phoneNumber;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        user = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null)
+        {
+            navigationManager.NavigateTo("/Account/Login");
+            return;
+        }
+
+        ListaProductos = await productosService.Listar(p => p.ProductoId > 0);
+
+        if (EntradaId > 0)
+        {
+            entrada = await entradaService.Buscar(EntradaId);
+        }
+        else
+        {
+            entrada = new Entrada
+            {
+                Fecha = DateTime.Now,
+                Detalles = new List<EntradaDetalle>()
+            };
+        }
+    }
+
+
+    private void AlCambiarProducto(int valor)
+    {
+        productoIdDetalle = valor;
+        var producto = ListaProductos.FirstOrDefault(p => p.ProductoId == valor);
+        if (producto != null)
+        {
+            costoDetalle = producto.Costo; 
+        }
+    }
+
+    public void AgregarDetalle()
+    {
+        if (cantidad <= 0)
+        {
+            errorMessage = "La cantidad debe ser mayor que 0";
+            return;
+        }
+        if (productoIdDetalle <= 0)
+        {
+            errorMessage = "Debe seleccionar un producto";
+            return;
+        }
+        if (costoDetalle <= 0)
+        {
+            errorMessage = "El costo debe ser mayor que 0";
+            return;
+        }
+
+        var producto = ListaProductos.FirstOrDefault(p => p.ProductoId == productoIdDetalle);
+        if (producto == null)
+        {
+            errorMessage = "Producto no encontrado";
+            return;
+        }
+
+        var detalleExistente = entrada.Detalles.FirstOrDefault(d => d.ProductoId == productoIdDetalle);
+
+        if (detalleExistente != null)
+        {
+            detalleExistente.Cantidad += cantidad;
+
+        }
+        else
+        {
+            var nuevoDetalle = new EntradaDetalle
+            {
+                ProductoId = productoIdDetalle,
+                Cantidad = cantidad,
+                Costo = costoDetalle
+            };
+            entrada.Detalles.Add(nuevoDetalle);
+        }
+
+        RecalcularTotales();
+        LimpiarDetalleInput();
+    }
+
+    private void EliminarDetalle(EntradaDetalle detalle)
+    {
+        productoIdDetalle = detalle.ProductoId;
+        cantidad = detalle.Cantidad;
+        costoDetalle = detalle.Costo;
+
+        entrada.Detalles.Remove(detalle);
+
+        RecalcularTotales();
+    }
+
+    private async Task Guardar()
+    {
+        if (!entrada.Detalles.Any())
+        {
+            errorMessage = "Debe agregar al menos un detalle a la entrada";
+            return;
+        }
+
+        var guardado = await entradaService.Guardar(entrada);
+
+        if (guardado)
+        {
+            navigationManager.NavigateTo("/Entrada/Index");
+        }
+        else
+        {
+            errorMessage = "No se pudo guardar la entrada correctamente";
+        }
+    }
+
+    private async Task Eliminar()
+    {
+        var eliminado = await entradaService.Eliminar(entrada.EntradaId);
+
+        if (eliminado)
+        {
+            navigationManager.NavigateTo("/Entrada/Index");
+        }
+        else
+        {
+            errorMessage = "No se pudo eliminar la entrada";
+        }
+    }
+
+    private void RecalcularTotales()
+    {
+        entrada.Total = entrada.Detalles.Sum(d => d.Cantidad * d.Costo);
+    }
+
+    private void LimpiarDetalleInput()
+    {
+        productoIdDetalle = 0;
+        cantidad = 0;
+        costoDetalle = 0;
+        errorMessage = string.Empty;
+    }
+}

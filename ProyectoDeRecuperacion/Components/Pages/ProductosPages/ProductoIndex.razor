@@ -1,12 +1,20 @@
 ﻿@page "/productos/index"
 
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using ProyectoDeRecuperacion.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager navigationManager
+
 @inject ProductosService productoService
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
 <PageTitle>Consulta de Productos</PageTitle>
 <div class="container">
-    <div class="card shadow-lg">
+    <div class="card shadow-lg"><Register />
         <div class="card-header space-between">
             <h5 class="card-title">Consulta de Productos</h5>
             <a href="/productos/create" class="btn btn-primary"><span class="bi bi-plus-square mt-3"></span>  Crear</a>
@@ -102,8 +110,23 @@
     public string Filtro { get; set; } = string.Empty;
     public string ValorFiltro { get; set; } = string.Empty;
 
+    private ApplicationUser? user;
+    private string? username;
+    private string? phoneNumber;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
     protected override async Task OnInitializedAsync()
     {
+
+        user = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null)
+        {
+            navigationManager.NavigateTo("/Account/Login");
+            return;
+        }
+
         ListaProductos = await productoService.Listar(p => p.ProductoId > 0);
     }
 
