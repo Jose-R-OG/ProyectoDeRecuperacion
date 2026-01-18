@@ -1,17 +1,11 @@
 ﻿@page "/productos/create"
 @page "/productos/edit/{ProductoId:int}"
 
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
-@using System.ComponentModel.DataAnnotations
-@using Microsoft.AspNetCore.Identity
-@using ProyectoDeRecuperacion.Data
-
-@inject UserManager<ApplicationUser> UserManager
-@inject SignInManager<ApplicationUser> SignInManager
-
 @inject ProductosService productoService
 @inject NavigationManager navigationManager
 @rendermode InteractiveServer
+
+@attribute [Authorize]
 
 <PageTitle>@(ProductoId > 0 ? "Editar Producto" : "Crear Producto")</PageTitle>
 
@@ -91,21 +85,8 @@
     public Productos producto { get; set; } = new Productos();
     public string Mensaje { get; set; } = string.Empty;
 
-    private ApplicationUser? user;
-    private string? username;
-    private string? phoneNumber;
-
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
     protected override async Task OnInitializedAsync()
     {
-        user = await UserManager.GetUserAsync(HttpContext.User);
-        if (user is null)
-        {
-            navigationManager.NavigateTo("/Account/Login");
-            return;
-        }
 
         if (ProductoId > 0)
         {

@@ -1,18 +1,12 @@
 ﻿@page "/Entrada/Create"
 @page "/Entrada/Edit/{EntradaId:int}"
 
-
-@using System.ComponentModel.DataAnnotations
-@using Microsoft.AspNetCore.Identity
-@using ProyectoDeRecuperacion.Data
-
-@inject UserManager<ApplicationUser> UserManager
-@inject SignInManager<ApplicationUser> SignInManager
-
 @inject EntradaService entradaService
 @inject ProductosService productosService
 @inject NavigationManager navigationManager
 @rendermode InteractiveServer
+
+@attribute [Authorize]
 
 <PageTitle>@(EntradaId > 0 ? "Editar Entrada" : "Crear Entrada")</PageTitle>
 
@@ -150,22 +144,8 @@
 
     public List<Productos> ListaProductos { get; set; } = new List<Productos>();
 
-    private ApplicationUser? user;
-    private string? username;
-    private string? phoneNumber;
-
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
     protected override async Task OnInitializedAsync()
     {
-
-        user = await UserManager.GetUserAsync(HttpContext.User);
-        if (user is null)
-        {
-            navigationManager.NavigateTo("/Account/Login");
-            return;
-        }
 
         ListaProductos = await productosService.Listar(p => p.ProductoId > 0);
 
